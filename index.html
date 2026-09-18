@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>PDV de Bolso - Mercadinho</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Dexie.js (IndexedDB Wrapper) -->
+  <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+  <!-- HTML5 QR / Barcode Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    #reader video {
+      object-fit: cover !important;
+      width: 100% !important;
+      height: 100% !important;
+      border-radius: 1rem;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans min-h-screen flex flex-col justify-between antialiased">
+
+  <!-- APLICAÇÃO CONTAINER -->
+  <div id="app" class="max-w-md w-full mx-auto bg-slate-50 min-h-screen flex flex-col justify-between shadow-2xl relative pb-20">
+
+    <!-- HEADER DASHBOARD -->
+    <header id="main-header" class="bg-slate-900 text-white p-4 flex justify-between items-center shadow-md">
+      <div class="flex items-center gap-2">
+        <i data-lucide="shopping-bag" class="w-6 h-6 text-emerald-400"></i>
+        <h1 class="text-xl font-black tracking-wide">PDV DE BOLSO</h1>
+      </div>
+      <span class="text-xs bg-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-full font-bold border border-emerald-500/30">ONLINE</span>
+    </header>
+
+    <!-- TELA 1: DASHBOARD -->
+    <main id="view-dashboard" class="flex-1 p-5 space-y-6">
+      <button onclick="switchView('pdv')" class="w-full bg-emerald-600 active:bg-emerald-700 text-white h-28 rounded-3xl shadow-lg flex flex-col items-center justify-center gap-1 active:scale-95 transition-all">
+        <i data-lucide="scan-line" class="w-10 h-10"></i>
+        <span class="text-2xl font-black tracking-wider">NOVA VENDA</span>
+      </button>
+
+      <div class="bg-white border border-slate-200 rounded-3xl p-6 text-center shadow-sm">
+        <p class="text-slate-500 text-sm font-extrabold uppercase tracking-wider mb-1">Total Vendido Hoje</p>
+        <p id="dash-total-today" class="text-4xl font-black text-slate-900">R$ 0,00</p>
+        <div class="mt-4 pt-4 border-t border-slate-200 flex justify-around text-slate-600 font-bold text-sm">
+          <div>Vendas: <span id="dash-count-today" class="text-slate-900">0</span></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- TELA 2: PDV / CARRINHO -->
+    <main id="view-pdv" class="flex-1 flex flex-col hidden relative bg-slate-100">
+      
+      <!-- Topbar Estilo App Nativo -->
+      <div class="p-4 flex justify-between items-center bg-slate-100">
+        <div class="flex items-center gap-3">
+          <button onclick="switchView('dashboard')" class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-slate-700">
+            <i data-lucide="arrow-left" class="w-6 h-6"></i>
+          </button>
+          <div>
+            <span class="text-xs font-bold text-emerald-600 tracking-wider">PDV</span>
+            <h2 class="text-2xl font-black text-slate-900 leading-none">Nova venda</h2>
+          </div>
+        </div>
+        <div id="cart-badge-count" class="w-9 h-9 bg-emerald-100 text-emerald-700 font-black rounded-full flex items-center justify-center text-sm">
+          0
+        </div>
+      </div>
+
+      <!-- CARD CONTAINER DA CÂMERA -->
+      <div class="px-4">
+        <div class="bg-white p-3 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
+          
+          <!-- Área do Leitor de Vídeo -->
+          <div class="relative h-56 w-full rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center">
+            <div id="reader" class="w-full h-full"></div>
+
+            <!-- Retículo / Mira de Escaneamento -->
+            <div class="pointer-events-none absolute inset-0 flex items-center justify-center p-6 z-10">
+              <div class="w-full h-32 border-2 border-white/90 rounded-2xl relative flex items-center justify-center shadow-2xl">
+                <div class="w-full h-0.5 bg-emerald-500 shadow-[0_0_10px_#10b981]"></div>
+              </div>
+            </div>
+
+            <!-- Botão Recarregar Câmera em caso de erro -->
+            <button onclick="startScanner()" class="absolute top-3 right-3 bg-slate-900/60 text-white p-2 rounded-full z-20 backdrop-blur-md">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Rodapé do Card da Câmera -->
+          <div class="flex justify-between items-center px-1 pt-1">
+            <div class="flex items-center gap-1.5 text-slate-600 font-bold text-xs sm:text-sm">
+              <i data-lucide="scan-line" class="w-4 h-4 text-emerald-600"></i>
+              <span>Aponte para um código de barras</span>
+            </div>
+            <button onclick="openQuickSearchModal()" class="text-emerald-700 font-black text-sm tracking-wider hover:underline">
+              DIGITAR
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ÁREA DO CARRINHO DE COMPRAS -->
+      <div class="flex-1 px-4 py-4 overflow-y-auto no-scrollbar space-y-3" id="cart-container">
+        
+        <!-- ESTADO VAZIO -->
+        <div id="cart-empty-state" class="h-full flex flex-col items-center justify-center text-center py-8 space-y-2">
+          <div class="w-16 h-16 bg-slate-200/60 text-slate-700 rounded-2xl flex items-center justify-center">
+            <i data-lucide="barcode" class="w-8 h-8"></i>
+          </div>
+          <h3 class="text-lg font-black text-slate-900">Carrinho vazio</h3>
+          <p class="text-xs font-bold text-slate-400 max-w-[200px]">Escaneie um produto ou use a entrada manual.</p>
+        </div>
+
+        <!-- LISTA DE ITENS BIPADOS -->
+        <div id="cart-items-list" class="space-y-2 hidden"></div>
+
+      </div>
+
+      <!-- RODAPÉ FIXO DO PDV -->
+      <div class="p-4 bg-white border-t border-slate-200 flex justify-between items-center shadow-lg">
+        <div>
+          <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider block">TOTAL</span>
+          <span id="cart-total" class="text-2xl font-black text-slate-900">R$ 0,00</span>
+        </div>
+        
+        <button id="btn-cobrar" onclick="switchView('checkout')" disabled class="h-14 px-8 bg-emerald-600 disabled:bg-emerald-200 text-white font-black text-lg rounded-2xl shadow-md disabled:shadow-none flex items-center gap-2 active:scale-95 transition-all">
+          <span>COBRAR</span>
+          <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+    </main>
+
+    <!-- TELA 3: CHECKOUT -->
+    <main id="view-checkout" class="flex-1 p-5 flex flex-col justify-between hidden bg-white">
+      <div class="space-y-6">
+        <div class="text-center bg-slate-50 p-6 rounded-3xl border border-slate-200">
+          <p class="text-slate-500 font-bold text-sm">VALOR TOTAL</p>
+          <p id="checkout-total" class="text-4xl font-black text-slate-900">R$ 0,00</p>
+        </div>
+
+        <p class="font-extrabold text-slate-700 uppercase text-xs tracking-wider">Forma de Pagamento</p>
+        
+        <div class="grid grid-cols-3 gap-3">
+          <button onclick="selectPaymentMethod('Dinheiro')" id="pay-btn-Dinheiro" class="pay-btn h-20 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-700 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all">
+            <i data-lucide="banknote" class="w-6 h-6"></i> Dinheiro
+          </button>
+          <button onclick="selectPaymentMethod('Cartão')" id="pay-btn-Cartão" class="pay-btn h-20 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-700 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all">
+            <i data-lucide="credit-card" class="w-6 h-6"></i> Cartão
+          </button>
+          <button onclick="selectPaymentMethod('Pix')" id="pay-btn-Pix" class="pay-btn h-20 bg-slate-50 border-2 border-slate-200 rounded-2xl font-black text-slate-700 flex flex-col items-center justify-center gap-1 active:scale-95 transition-all">
+            <i data-lucide="qr-code" class="w-6 h-6"></i> Pix
+          </button>
+        </div>
+
+        <div id="cash-panel" class="hidden space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Valor Recebido (R$)</label>
+            <input type="number" step="0.01" id="cash-received" inputmode="decimal" placeholder="0,00" oninput="calculateChange()" class="w-full h-14 text-2xl font-black px-4 rounded-xl border-2 border-slate-300 focus:border-slate-900 outline-none">
+          </div>
+          <div class="flex justify-between items-center font-black text-lg pt-2">
+            <span>Troco:</span>
+            <span id="cash-change" class="text-2xl text-slate-400">R$ 0,00</span>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-finish-sale" onclick="finishSale()" disabled class="w-full h-16 bg-emerald-600 disabled:bg-slate-300 text-white text-xl font-black rounded-2xl shadow-lg active:scale-95 transition-all uppercase">
+        FINALIZAR VENDA
+      </button>
+    </main>
+
+    <!-- TELA 4: GERENCIAMENTO DE PRODUTOS -->
+    <main id="view-products" class="flex-1 p-5 space-y-4 hidden pb-24 bg-white">
+      <div class="flex gap-2">
+        <input type="text" id="product-search" oninput="renderProductsList()" placeholder="Buscar produto..." class="w-full h-12 px-4 border-2 border-slate-200 rounded-xl font-bold outline-none bg-slate-50">
+      </div>
+
+      <div id="products-list" class="space-y-2"></div>
+
+      <button onclick="openProductModal()" class="fixed bottom-24 right-6 bg-slate-900 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center active:scale-90 transition-transform z-20">
+        <i data-lucide="plus" class="w-8 h-8"></i>
+      </button>
+    </main>
+
+    <!-- TELA 5: HISTÓRICO DE VENDAS -->
+    <main id="view-history" class="flex-1 p-5 space-y-3 hidden bg-white">
+      <h2 class="text-lg font-black text-slate-800 uppercase tracking-wider mb-2">Últimas Vendas</h2>
+      <div id="sales-history-list" class="space-y-3"></div>
+    </main>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav class="fixed bottom-0 max-w-md w-full bg-slate-900 text-slate-400 flex justify-around p-2 border-t border-slate-800 z-30">
+      <button onclick="switchView('dashboard')" id="nav-dashboard" class="nav-btn flex flex-col items-center py-1 text-emerald-400">
+        <i data-lucide="home" class="w-6 h-6"></i>
+        <span class="text-xs font-bold mt-1">Início</span>
+      </button>
+      <button onclick="switchView('products')" id="nav-products" class="nav-btn flex flex-col items-center py-1">
+        <i data-lucide="package" class="w-6 h-6"></i>
+        <span class="text-xs font-bold mt-1">Produtos</span>
+      </button>
+      <button onclick="switchView('history')" id="nav-history" class="nav-btn flex flex-col items-center py-1">
+        <i data-lucide="history" class="w-6 h-6"></i>
+        <span class="text-xs font-bold mt-1">Histórico</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- MODAL 1: CADASTRO RÁPIDO / EDIÇÃO PRODUTO -->
+  <div id="product-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
+      <h3 id="modal-title" class="text-xl font-black text-slate-900">Cadastro Rápido</h3>
+      
+      <form id="product-form" onsubmit="saveProduct(event)" class="space-y-3">
+        <input type="hidden" id="prod-id">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase">Código de Barras</label>
+          <input type="text" id="prod-barcode" required class="w-full h-12 px-3 border-2 border-slate-300 rounded-xl font-bold">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase">Nome do Produto</label>
+          <input type="text" id="prod-name" required placeholder="Ex: Doce de Leite" class="w-full h-12 px-3 border-2 border-slate-300 rounded-xl font-bold">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase">Preço (R$)</label>
+          <input type="number" step="0.01" id="prod-price" required inputmode="decimal" placeholder="0,00" class="w-full h-12 px-3 border-2 border-slate-300 rounded-xl font-bold text-xl">
+        </div>
+
+        <div class="flex gap-2 pt-2">
+          <button type="button" onclick="closeProductModal()" class="w-1/2 h-12 bg-slate-200 text-slate-700 font-bold rounded-xl">Cancelar</button>
+          <button type="submit" class="w-1/2 h-12 bg-emerald-600 text-white font-black rounded-xl">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: BUSCA RÁPIDA DE PRODUTO PARA ADICIONAR NO CARRINHO -->
+  <div id="quick-search-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl p-5 w-full max-w-md h-[80vh] flex flex-col justify-between shadow-2xl">
+      <div class="space-y-3 flex-1 flex flex-col">
+        <div class="flex justify-between items-center">
+          <h3 class="text-lg font-black text-slate-900">Pesquisar Produto</h3>
+          <button onclick="closeQuickSearchModal()" class="p-2 bg-slate-100 rounded-full text-slate-600">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <input type="text" id="quick-search-input" oninput="renderQuickSearchList()" placeholder="Digite nome ou código..." class="w-full h-14 px-4 border-2 border-slate-900 rounded-2xl font-bold text-lg outline-none bg-slate-50">
+
+        <div id="quick-search-results" class="flex-1 overflow-y-auto no-scrollbar space-y-2 pt-2"></div>
+      </div>
+
+      <button onclick="closeQuickSearchModal()" class="w-full h-12 mt-3 bg-slate-200 text-slate-800 font-black rounded-xl uppercase">
+        Fechar
+      </button>
+    </div>
+  </div>
+
+  <!-- SCRIPT JS PRINCIPAL -->
+  <script>
+    // BANCO DE DADOS LOCAL
+    const db = new Dexie("PDV_LocalDB");
+    db.version(1).stores({
+      products: 'id, &barcode, name, price',
+      sales: 'id, total_amount, payment_method, created_at',
+      saleItems: 'id, sale_id, product_id, quantity, unit_price'
+    });
+
+    const generateUUID = () => crypto.randomUUID ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+    const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+
+    let currentCart = [];
+    let selectedPayment = null;
+    let html5QrCode = null;
+    let lastScannedCode = null;
+    let lastScanTime = 0;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      seedInitialData();
+      updateDashboardData();
+    });
+
+    function switchView(viewName) {
+      document.querySelectorAll('main').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`view-${viewName}`).classList.remove('hidden');
+
+      const header = document.getElementById('main-header');
+      if (viewName === 'pdv') {
+        header.classList.add('hidden');
+        startScanner();
+      } else {
+        header.classList.remove('hidden');
+        stopScanner();
+      }
+
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('text-emerald-400'));
+      const activeNav = document.getElementById(`nav-${viewName}`);
+      if (activeNav) activeNav.classList.add('text-emerald-400');
+
+      if (viewName === 'dashboard') updateDashboardData();
+      if (viewName === 'products') renderProductsList();
+      if (viewName === 'history') renderSalesHistory();
+    }
+
+    async function seedInitialData() {
+      const count = await db.products.count();
+      if (count === 0) {
+        await db.products.bulkAdd([
+          { id: generateUUID(), barcode: "SEM_COD_1", name: "Bala / Doce Avulso", price: 0.50 },
+          { id: generateUUID(), barcode: "7891000315507", name: "Café Pilão 500g", price: 18.50 },
+          { id: generateUUID(), barcode: "7894900011517", name: "Coca-Cola 2L", price: 9.99 }
+        ]);
+      }
+    }
+
+    function playBeep() {
+      try {
+        if (navigator.vibrate) navigator.vibrate(120);
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = 1900;
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch (e) { console.error("Audio error", e); }
+    }
+
+    // ABRIR CÂMERA E SOLICITAR PERMISSÃO
+    async function startScanner() {
+      if (html5QrCode) {
+        await stopScanner();
+      }
+
+      // 1. SOLICITA PERMISSÃO EXPLÍCITA AO NAVEGADOR
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          alert("Atenção: O acesso à câmera requer conexão segura HTTPS ou execução direta no celular.");
+          return;
+        }
+
+        const testStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } }
+        });
+        
+        // Interrompe o teste imediatamente para liberar a câmera para a biblioteca
+        testStream.getTracks().forEach(track => track.stop());
+      } catch (err) {
+        console.error("Permissão da câmera negada ou indisponível:", err);
+        alert("Permissão para usar a câmera foi negada. Por favor, permita o acesso à câmera nas configurações do seu navegador.");
+        return;
+      }
+
+      // 2. INICIALIZA O LEITOR DE CÓDIGO DE BARRAS
+      html5QrCode = new Html5Qrcode("reader");
+
+      const config = {
+        fps: 20,
+        qrbox: { width: 260, height: 130 },
+        aspectRatio: 1.777778,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
+      };
+
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          onBarcodeScanned
+        );
+      } catch (e) {
+        console.warn("Tentando câmera genérica...", e);
+        try {
+          await html5QrCode.start(
+            { facingMode: "user" },
+            config,
+            onBarcodeScanned
+          );
+        } catch (errFinal) {
+          alert("Não foi possível iniciar o vídeo da câmera.");
+        }
+      }
+    }
+
+    async function stopScanner() {
+      if (html5QrCode) {
+        try {
+          await html5QrCode.stop();
+          html5QrCode.clear();
+        } catch (e) {
+          console.error("Erro ao parar câmera:", e);
+        } finally {
+          html5QrCode = null;
+        }
+      }
+    }
+
+    async function onBarcodeScanned(decodedText) {
+      const now = Date.now();
+      if (decodedText === lastScannedCode && (now - lastScanTime) < 2000) return;
+      
+      lastScannedCode = decodedText;
+      lastScanTime = now;
+      playBeep();
+
+      const product = await db.products.where('barcode').equals(decodedText).first();
+
+      if (product) {
+        addToCart(product);
+      } else {
+        openProductModal(decodedText, true);
+      }
+    }
+
+    // CARRINHO E BUSCA
+    function addToCart(product) {
+      const existing = currentCart.find(item => item.product_id === product.id);
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        currentCart.push({
+          product_id: product.id,
+          name: product.name,
+          unit_price: product.price,
+          quantity: 1
+        });
+      }
+      renderCart();
+    }
+
+    function openQuickSearchModal() {
+      document.getElementById('quick-search-input').value = '';
+      document.getElementById('quick-search-modal').classList.remove('hidden');
+      renderQuickSearchList();
+      setTimeout(() => document.getElementById('quick-search-input').focus(), 150);
+    }
+
+    function closeQuickSearchModal() {
+      document.getElementById('quick-search-modal').classList.add('hidden');
+    }
+
+    async function renderQuickSearchList() {
+      const query = document.getElementById('quick-search-input').value.toLowerCase();
+      const products = await db.products.toArray();
+      const filtered = products.filter(p => p.name.toLowerCase().includes(query) || p.barcode.toLowerCase().includes(query));
+
+      const container = document.getElementById('quick-search-results');
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-center text-slate-400 font-bold py-6">Nenhum produto encontrado.</p>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(p => `
+        <div onclick="selectProductFromSearch('${p.id}')" class="bg-slate-50 active:bg-emerald-50 border-2 border-slate-200 active:border-emerald-500 p-3.5 rounded-2xl flex justify-between items-center transition-all cursor-pointer">
+          <div>
+            <p class="font-black text-slate-900 text-base">${p.name}</p>
+            <p class="text-xs font-bold text-slate-400">Cód: ${p.barcode}</p>
+          </div>
+          <div class="text-right">
+            <span class="text-lg font-black text-slate-900 block">${formatCurrency(p.price)}</span>
+            <span class="text-xs font-bold text-emerald-600 uppercase">+ Adicionar</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function selectProductFromSearch(productId) {
+      const product = await db.products.get(productId);
+      if (product) {
+        playBeep();
+        addToCart(product);
+        closeQuickSearchModal();
+      }
+    }
+
+    function updateCartQty(productId, delta) {
+      const item = currentCart.find(i => i.product_id === productId);
+      if (item) {
+        item.quantity += delta;
+        if (item.quantity <= 0) {
+          currentCart = currentCart.filter(i => i.product_id !== productId);
+        }
+      }
+      renderCart();
+    }
+
+    function renderCart() {
+      const emptyState = document.getElementById('cart-empty-state');
+      const itemsList = document.getElementById('cart-items-list');
+      const badgeCount = document.getElementById('cart-badge-count');
+
+      const totalItemsCount = currentCart.reduce((sum, i) => sum + i.quantity, 0);
+      badgeCount.innerText = totalItemsCount;
+
+      if (currentCart.length === 0) {
+        emptyState.classList.remove('hidden');
+        itemsList.classList.add('hidden');
+        itemsList.innerHTML = '';
+      } else {
+        emptyState.classList.add('hidden');
+        itemsList.classList.remove('hidden');
+        itemsList.innerHTML = '';
+
+        currentCart.forEach(item => {
+          itemsList.innerHTML += `
+            <div class="bg-white border border-slate-200 rounded-2xl p-3 flex justify-between items-center shadow-sm">
+              <div class="flex-1 pr-2">
+                <p class="font-black text-slate-900 text-base leading-tight">${item.name}</p>
+                <p class="text-xs font-bold text-slate-400 mt-0.5">${formatCurrency(item.unit_price)} un.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="updateCartQty('${item.product_id}', -1)" class="w-9 h-9 bg-slate-100 active:bg-slate-200 font-black text-lg rounded-xl text-slate-700">-</button>
+                <span class="font-black text-base w-5 text-center text-slate-900">${item.quantity}</span>
+                <button onclick="updateCartQty('${item.product_id}', 1)" class="w-9 h-9 bg-slate-100 active:bg-slate-200 font-black text-lg rounded-xl text-slate-700">+</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+
+      const total = currentCart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+      document.getElementById('cart-total').innerText = formatCurrency(total);
+      document.getElementById('checkout-total').innerText = formatCurrency(total);
+      document.getElementById('btn-cobrar').disabled = currentCart.length === 0;
+    }
+
+    // CHECKOUT
+    function selectPaymentMethod(method) {
+      selectedPayment = method;
+      document.querySelectorAll('.pay-btn').forEach(b => b.classList.replace('border-slate-900', 'border-slate-200'));
+      document.getElementById(`pay-btn-${method}`).classList.replace('border-slate-200', 'border-slate-900');
+
+      const cashPanel = document.getElementById('cash-panel');
+      if (method === 'Dinheiro') {
+        cashPanel.classList.remove('hidden');
+        document.getElementById('cash-received').focus();
+      } else {
+        cashPanel.classList.add('hidden');
+      }
+
+      validateCheckout();
+    }
+
+    function calculateChange() {
+      const total = currentCart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+      const received = parseFloat(document.getElementById('cash-received').value) || 0;
+      const change = received - total;
+
+      const changeEl = document.getElementById('cash-change');
+      changeEl.innerText = formatCurrency(change);
+
+      if (change >= 0) {
+        changeEl.className = "text-2xl font-black text-emerald-600";
+      } else {
+        changeEl.className = "text-2xl font-black text-rose-600";
+      }
+
+      validateCheckout();
+    }
+
+    function validateCheckout() {
+      const btn = document.getElementById('btn-finish-sale');
+      if (!selectedPayment) {
+        btn.disabled = true;
+        return;
+      }
+
+      if (selectedPayment === 'Dinheiro') {
+        const total = currentCart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+        const received = parseFloat(document.getElementById('cash-received').value) || 0;
+        btn.disabled = received < total;
+      } else {
+        btn.disabled = false;
+      }
+    }
+
+    async function finishSale() {
+      const saleId = generateUUID();
+      const totalAmount = currentCart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
+
+      await db.transaction('rw', db.sales, db.saleItems, async () => {
+        await db.sales.add({
+          id: saleId,
+          total_amount: totalAmount,
+          payment_method: selectedPayment,
+          created_at: new Date().toISOString()
+        });
+
+        const itemsToInsert = currentCart.map(item => ({
+          id: generateUUID(),
+          sale_id: saleId,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price
+        }));
+
+        await db.saleItems.bulkAdd(itemsToInsert);
+      });
+
+      alert("Venda Finalizada com Sucesso!");
+      
+      currentCart = [];
+      selectedPayment = null;
+      document.getElementById('cash-received').value = '';
+      document.getElementById('cash-panel').classList.add('hidden');
+      renderCart();
+      
+      switchView('dashboard');
+    }
+
+    // DASHBOARD & HISTÓRICO
+    async function updateDashboardData() {
+      const today = new Date().toISOString().split('T')[0];
+      const sales = await db.sales.toArray();
+      
+      const salesToday = sales.filter(s => s.created_at.startsWith(today));
+      const totalToday = salesToday.reduce((acc, s) => acc + s.total_amount, 0);
+
+      document.getElementById('dash-total-today').innerText = formatCurrency(totalToday);
+      document.getElementById('dash-count-today').innerText = salesToday.length;
+    }
+
+    async function renderSalesHistory() {
+      const container = document.getElementById('sales-history-list');
+      const sales = await db.sales.orderBy('created_at').reverse().toArray();
+
+      if (sales.length === 0) {
+        container.innerHTML = `<p class="text-center text-slate-400 font-bold py-8">Nenhuma venda realizada.</p>`;
+        return;
+      }
+
+      container.innerHTML = sales.map(s => {
+        const time = new Date(s.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex justify-between items-center">
+            <div>
+              <span class="text-xs font-black text-slate-400 uppercase">${s.payment_method}</span>
+              <p class="font-extrabold text-slate-800 text-sm">${time}</p>
+            </div>
+            <span class="text-xl font-black text-slate-900">${formatCurrency(s.total_amount)}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // PRODUTOS
+    async function renderProductsList() {
+      const query = document.getElementById('product-search').value.toLowerCase();
+      const products = await db.products.toArray();
+      const filtered = products.filter(p => p.name.toLowerCase().includes(query) || p.barcode.includes(query));
+
+      const list = document.getElementById('products-list');
+      list.innerHTML = filtered.map(p => `
+        <div class="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex justify-between items-center">
+          <div>
+            <p class="font-extrabold text-slate-900 text-base">${p.name}</p>
+            <p class="text-xs font-bold text-slate-400">Cód: ${p.barcode}</p>
+            <p class="text-sm font-black text-emerald-600 mt-1">${formatCurrency(p.price)}</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="editProduct('${p.id}')" class="p-2.5 bg-slate-200 rounded-xl font-bold"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+            <button onclick="deleteProduct('${p.id}')" class="p-2.5 bg-rose-100 text-rose-600 rounded-xl font-bold"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    function openProductModal(barcode = '', autoAddToCart = false) {
+      document.getElementById('product-form').reset();
+      document.getElementById('prod-id').value = '';
+      document.getElementById('prod-barcode').value = barcode || 'SEM_COD_' + Date.now().toString().slice(-4);
+      document.getElementById('modal-title').innerText = barcode ? 'Cadastro Rápido' : 'Novo Produto';
+      document.getElementById('product-modal').dataset.autoAdd = autoAddToCart;
+      document.getElementById('product-modal').classList.remove('hidden');
+    }
+
+    function closeProductModal() {
+      document.getElementById('product-modal').classList.add('hidden');
+    }
+
+    async function saveProduct(e) {
+      e.preventDefault();
+      const id = document.getElementById('prod-id').value || generateUUID();
+      const barcode = document.getElementById('prod-barcode').value;
+      const name = document.getElementById('prod-name').value;
+      const price = parseFloat(document.getElementById('prod-price').value);
+
+      const product = { id, barcode, name, price };
+      await db.products.put(product);
+
+      const autoAdd = document.getElementById('product-modal').dataset.autoAdd === "true";
+      if (autoAdd) {
+        addToCart(product);
+      }
+
+      closeProductModal();
+      renderProductsList();
+    }
+
+    async function editProduct(id) {
+      const p = await db.products.get(id);
+      if (!p) return;
+      document.getElementById('prod-id').value = p.id;
+      document.getElementById('prod-barcode').value = p.barcode;
+      document.getElementById('prod-name').value = p.name;
+      document.getElementById('prod-price').value = p.price;
+      document.getElementById('modal-title').innerText = 'Editar Produto';
+      document.getElementById('product-modal').classList.remove('hidden');
+    }
+
+    async function deleteProduct(id) {
+      if (confirm('Deseja excluir este produto?')) {
+        await db.products.delete(id);
+        renderProductsList();
+      }
+    }
+  </script>
+</body>
+</html>
