@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>PDV de Bolso - Mercadinho</title>
+  <title>PDV de Bolso - Com Estoque</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -64,7 +64,6 @@
     <!-- TELA 2: PDV / CARRINHO -->
     <main id="view-pdv" class="flex-1 flex flex-col hidden relative bg-slate-100">
       
-      <!-- Topbar Estilo App Nativo -->
       <div class="p-4 flex justify-between items-center bg-slate-100">
         <div class="flex items-center gap-3">
           <button onclick="switchView('dashboard')" class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm text-slate-700">
@@ -80,32 +79,25 @@
         </div>
       </div>
 
-      <!-- CARD CONTAINER DA CÂMERA -->
       <div class="px-4">
         <div class="bg-white p-3 rounded-3xl shadow-sm border border-slate-200/80 space-y-3">
           
-          <!-- Área do Leitor de Vídeo -->
           <div class="relative h-56 w-full rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center">
             <div id="reader" class="w-full h-full"></div>
-
-            <!-- Retículo / Mira de Escaneamento -->
             <div class="pointer-events-none absolute inset-0 flex items-center justify-center p-6 z-10">
               <div class="w-full h-32 border-2 border-white/90 rounded-2xl relative flex items-center justify-center shadow-2xl">
                 <div class="w-full h-0.5 bg-emerald-500 shadow-[0_0_10px_#10b981]"></div>
               </div>
             </div>
-
-            <!-- Botão Recarregar Câmera em caso de erro -->
             <button onclick="startScanner()" class="absolute top-3 right-3 bg-slate-900/60 text-white p-2 rounded-full z-20 backdrop-blur-md">
               <i data-lucide="refresh-cw" class="w-4 h-4"></i>
             </button>
           </div>
 
-          <!-- Rodapé do Card da Câmera -->
           <div class="flex justify-between items-center px-1 pt-1">
             <div class="flex items-center gap-1.5 text-slate-600 font-bold text-xs sm:text-sm">
               <i data-lucide="scan-line" class="w-4 h-4 text-emerald-600"></i>
-              <span>Aponte para um código de barras</span>
+              <span>Aponte para um código</span>
             </div>
             <button onclick="openQuickSearchModal()" class="text-emerald-700 font-black text-sm tracking-wider hover:underline">
               DIGITAR
@@ -115,10 +107,8 @@
         </div>
       </div>
 
-      <!-- ÁREA DO CARRINHO DE COMPRAS -->
       <div class="flex-1 px-4 py-4 overflow-y-auto no-scrollbar space-y-3" id="cart-container">
         
-        <!-- ESTADO VAZIO -->
         <div id="cart-empty-state" class="h-full flex flex-col items-center justify-center text-center py-8 space-y-2">
           <div class="w-16 h-16 bg-slate-200/60 text-slate-700 rounded-2xl flex items-center justify-center">
             <i data-lucide="barcode" class="w-8 h-8"></i>
@@ -127,12 +117,10 @@
           <p class="text-xs font-bold text-slate-400 max-w-[200px]">Escaneie um produto ou use a entrada manual.</p>
         </div>
 
-        <!-- LISTA DE ITENS BIPADOS -->
         <div id="cart-items-list" class="space-y-2 hidden"></div>
 
       </div>
 
-      <!-- RODAPÉ FIXO DO PDV -->
       <div class="p-4 bg-white border-t border-slate-200 flex justify-between items-center shadow-lg">
         <div>
           <span class="text-xs font-extrabold text-slate-400 uppercase tracking-wider block">TOTAL</span>
@@ -200,7 +188,7 @@
     </main>
 
     <!-- TELA 5: HISTÓRICO DE VENDAS -->
-    <main id="view-history" class="flex-1 p-5 space-y-3 hidden bg-white">
+    <main id="view-history" class="flex-1 p-5 space-y-3 hidden bg-white pb-24 overflow-y-auto no-scrollbar">
       <h2 class="text-lg font-black text-slate-800 uppercase tracking-wider mb-2">Últimas Vendas</h2>
       <div id="sales-history-list" class="space-y-3"></div>
     </main>
@@ -213,7 +201,7 @@
       </button>
       <button onclick="switchView('products')" id="nav-products" class="nav-btn flex flex-col items-center py-1">
         <i data-lucide="package" class="w-6 h-6"></i>
-        <span class="text-xs font-bold mt-1">Produtos</span>
+        <span class="text-xs font-bold mt-1">Estoque</span>
       </button>
       <button onclick="switchView('history')" id="nav-history" class="nav-btn flex flex-col items-center py-1">
         <i data-lucide="history" class="w-6 h-6"></i>
@@ -223,24 +211,38 @@
 
   </div>
 
-  <!-- MODAL 1: CADASTRO RÁPIDO / EDIÇÃO PRODUTO -->
+  <!-- MODAL 1: CADASTRO RÁPIDO / EDIÇÃO PRODUTO COM ESTOQUE -->
   <div id="product-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-2xl">
-      <h3 id="modal-title" class="text-xl font-black text-slate-900">Cadastro Rápido</h3>
+      <h3 id="modal-title" class="text-xl font-black text-slate-900">Cadastro de Produto</h3>
       
       <form id="product-form" onsubmit="saveProduct(event)" class="space-y-3">
         <input type="hidden" id="prod-id">
+        <input type="hidden" id="prod-current-stock-val" value="0">
+        
         <div>
           <label class="block text-xs font-bold text-slate-500 uppercase">Código de Barras</label>
-          <input type="text" id="prod-barcode" required class="w-full h-12 px-3 border-2 border-slate-300 rounded-xl font-bold">
+          <input type="text" id="prod-barcode" required class="w-full h-10 px-3 border-2 border-slate-300 rounded-xl font-bold">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-500 uppercase">Nome do Produto</label>
-          <input type="text" id="prod-name" required placeholder="Ex: Doce de Leite" class="w-full h-12 px-3 border-2 border-slate-300 rounded-xl font-bold">
+          <input type="text" id="prod-name" required placeholder="Ex: Doce de Leite" class="w-full h-10 px-3 border-2 border-slate-300 rounded-xl font-bold">
         </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase">Preço (R$)</label>
-          <input type="number" step="0.01" id="prod-price" required inputmode="decimal" placeholder="0,00" class="w-full h-12 px-3 border-2 border-slate-300 rounded-xl font-bold text-xl">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-500 uppercase">Preço (R$)</label>
+            <input type="number" step="0.01" id="prod-price" required inputmode="decimal" placeholder="0,00" class="w-full h-10 px-3 border-2 border-slate-300 rounded-xl font-bold">
+          </div>
+          <div>
+            <label id="lbl-stock-add" class="block text-xs font-bold text-slate-500 uppercase text-emerald-600">Adicionar Estoque</label>
+            <input type="number" id="prod-stock-add" placeholder="0" class="w-full h-10 px-3 border-2 border-emerald-300 bg-emerald-50 rounded-xl font-black text-emerald-700">
+          </div>
+        </div>
+        
+        <!-- Alerta de Estoque Atual visível apenas na edição -->
+        <div id="stock-info-box" class="hidden bg-slate-100 p-3 rounded-xl border border-slate-200 flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-500 uppercase">Estoque Atual:</span>
+          <span id="display-current-stock" class="font-black text-lg text-slate-800">0</span>
         </div>
 
         <div class="flex gap-2 pt-2">
@@ -275,12 +277,12 @@
 
   <!-- SCRIPT JS PRINCIPAL -->
   <script>
-    // BANCO DE DADOS LOCAL
+    // BANCO DE DADOS LOCAL - Versão 2 para incluir Estoque (stock)
     const db = new Dexie("PDV_LocalDB");
-    db.version(1).stores({
-      products: 'id, &barcode, name, price',
+    db.version(2).stores({
+      products: 'id, &barcode, name, price, stock',
       sales: 'id, total_amount, payment_method, created_at',
-      saleItems: 'id, sale_id, product_id, quantity, unit_price'
+      saleItems: 'id, sale_id, product_id, name, quantity, unit_price' // Incluí nome do item para facilitar histórico
     });
 
     const generateUUID = () => crypto.randomUUID ? crypto.randomUUID() : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
@@ -324,9 +326,9 @@
       const count = await db.products.count();
       if (count === 0) {
         await db.products.bulkAdd([
-          { id: generateUUID(), barcode: "SEM_COD_1", name: "Bala / Doce Avulso", price: 0.50 },
-          { id: generateUUID(), barcode: "7891000315507", name: "Café Pilão 500g", price: 18.50 },
-          { id: generateUUID(), barcode: "7894900011517", name: "Coca-Cola 2L", price: 9.99 }
+          { id: generateUUID(), barcode: "SEM_COD_1", name: "Bala / Doce Avulso", price: 0.50, stock: 100 },
+          { id: generateUUID(), barcode: "7891000315507", name: "Café Pilão 500g", price: 18.50, stock: 20 },
+          { id: generateUUID(), barcode: "7894900011517", name: "Coca-Cola 2L", price: 9.99, stock: 35 }
         ]);
       }
     }
@@ -347,73 +349,34 @@
       } catch (e) { console.error("Audio error", e); }
     }
 
-    // ABRIR CÂMERA E SOLICITAR PERMISSÃO
+    // LEITOR DE CÂMERA
     async function startScanner() {
-      if (html5QrCode) {
-        await stopScanner();
-      }
+      if (html5QrCode) await stopScanner();
 
-      // 1. SOLICITA PERMISSÃO EXPLÍCITA AO NAVEGADOR
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          alert("Atenção: O acesso à câmera requer conexão segura HTTPS ou execução direta no celular.");
+          alert("Acesso à câmera requer HTTPS.");
           return;
         }
-
-        const testStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } }
-        });
-        
-        // Interrompe o teste imediatamente para liberar a câmera para a biblioteca
+        const testStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } });
         testStream.getTracks().forEach(track => track.stop());
       } catch (err) {
-        console.error("Permissão da câmera negada ou indisponível:", err);
-        alert("Permissão para usar a câmera foi negada. Por favor, permita o acesso à câmera nas configurações do seu navegador.");
         return;
       }
 
-      // 2. INICIALIZA O LEITOR DE CÓDIGO DE BARRAS
       html5QrCode = new Html5Qrcode("reader");
-
-      const config = {
-        fps: 20,
-        qrbox: { width: 260, height: 130 },
-        aspectRatio: 1.777778,
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
-      };
+      const config = { fps: 20, qrbox: { width: 260, height: 130 }, aspectRatio: 1.777778, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
 
       try {
-        await html5QrCode.start(
-          { facingMode: "environment" },
-          config,
-          onBarcodeScanned
-        );
+        await html5QrCode.start({ facingMode: "environment" }, config, onBarcodeScanned);
       } catch (e) {
-        console.warn("Tentando câmera genérica...", e);
-        try {
-          await html5QrCode.start(
-            { facingMode: "user" },
-            config,
-            onBarcodeScanned
-          );
-        } catch (errFinal) {
-          alert("Não foi possível iniciar o vídeo da câmera.");
-        }
+        try { await html5QrCode.start({ facingMode: "user" }, config, onBarcodeScanned); } catch (errFinal) {}
       }
     }
 
     async function stopScanner() {
       if (html5QrCode) {
-        try {
-          await html5QrCode.stop();
-          html5QrCode.clear();
-        } catch (e) {
-          console.error("Erro ao parar câmera:", e);
-        } finally {
-          html5QrCode = null;
-        }
+        try { await html5QrCode.stop(); html5QrCode.clear(); } catch (e) {} finally { html5QrCode = null; }
       }
     }
 
@@ -426,7 +389,6 @@
       playBeep();
 
       const product = await db.products.where('barcode').equals(decodedText).first();
-
       if (product) {
         addToCart(product);
       } else {
@@ -437,6 +399,8 @@
     // CARRINHO E BUSCA
     function addToCart(product) {
       const existing = currentCart.find(item => item.product_id === product.id);
+      
+      // Validação visual de estoque no carrinho (não bloqueia para não travar o fluxo caso o dono faça furo de estoque)
       if (existing) {
         existing.quantity += 1;
       } else {
@@ -444,7 +408,8 @@
           product_id: product.id,
           name: product.name,
           unit_price: product.price,
-          quantity: 1
+          quantity: 1,
+          stock: product.stock // Armazena p/ visualização
         });
       }
       renderCart();
@@ -476,7 +441,7 @@
         <div onclick="selectProductFromSearch('${p.id}')" class="bg-slate-50 active:bg-emerald-50 border-2 border-slate-200 active:border-emerald-500 p-3.5 rounded-2xl flex justify-between items-center transition-all cursor-pointer">
           <div>
             <p class="font-black text-slate-900 text-base">${p.name}</p>
-            <p class="text-xs font-bold text-slate-400">Cód: ${p.barcode}</p>
+            <p class="text-xs font-bold ${p.stock > 0 ? 'text-slate-500' : 'text-rose-500'}">Cód: ${p.barcode} | Estoque: ${p.stock || 0}</p>
           </div>
           <div class="text-right">
             <span class="text-lg font-black text-slate-900 block">${formatCurrency(p.price)}</span>
@@ -524,11 +489,17 @@
         itemsList.innerHTML = '';
 
         currentCart.forEach(item => {
+          // Verifica se a quantidade vendida ultrapassou o estoque
+          const stockWarning = item.quantity > item.stock ? `<span class="text-rose-500 text-[10px] font-black uppercase">Estoque Baixo (${item.stock})</span>` : '';
+          
           itemsList.innerHTML += `
             <div class="bg-white border border-slate-200 rounded-2xl p-3 flex justify-between items-center shadow-sm">
               <div class="flex-1 pr-2">
                 <p class="font-black text-slate-900 text-base leading-tight">${item.name}</p>
-                <p class="text-xs font-bold text-slate-400 mt-0.5">${formatCurrency(item.unit_price)} un.</p>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <span class="text-xs font-bold text-slate-500">${formatCurrency(item.unit_price)} un.</span>
+                  ${stockWarning}
+                </div>
               </div>
               <div class="flex items-center gap-2">
                 <button onclick="updateCartQty('${item.product_id}', -1)" class="w-9 h-9 bg-slate-100 active:bg-slate-200 font-black text-lg rounded-xl text-slate-700">-</button>
@@ -546,7 +517,7 @@
       document.getElementById('btn-cobrar').disabled = currentCart.length === 0;
     }
 
-    // CHECKOUT
+    // CHECKOUT E DEDUÇÃO DE ESTOQUE
     function selectPaymentMethod(method) {
       selectedPayment = method;
       document.querySelectorAll('.pay-btn').forEach(b => b.classList.replace('border-slate-900', 'border-slate-200'));
@@ -559,7 +530,6 @@
       } else {
         cashPanel.classList.add('hidden');
       }
-
       validateCheckout();
     }
 
@@ -567,16 +537,10 @@
       const total = currentCart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
       const received = parseFloat(document.getElementById('cash-received').value) || 0;
       const change = received - total;
-
       const changeEl = document.getElementById('cash-change');
+      
       changeEl.innerText = formatCurrency(change);
-
-      if (change >= 0) {
-        changeEl.className = "text-2xl font-black text-emerald-600";
-      } else {
-        changeEl.className = "text-2xl font-black text-rose-600";
-      }
-
+      changeEl.className = change >= 0 ? "text-2xl font-black text-emerald-600" : "text-2xl font-black text-rose-600";
       validateCheckout();
     }
 
@@ -586,7 +550,6 @@
         btn.disabled = true;
         return;
       }
-
       if (selectedPayment === 'Dinheiro') {
         const total = currentCart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
         const received = parseFloat(document.getElementById('cash-received').value) || 0;
@@ -600,7 +563,8 @@
       const saleId = generateUUID();
       const totalAmount = currentCart.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
 
-      await db.transaction('rw', db.sales, db.saleItems, async () => {
+      await db.transaction('rw', db.sales, db.saleItems, db.products, async () => {
+        // Registra a venda Geral
         await db.sales.add({
           id: saleId,
           total_amount: totalAmount,
@@ -608,18 +572,30 @@
           created_at: new Date().toISOString()
         });
 
-        const itemsToInsert = currentCart.map(item => ({
-          id: generateUUID(),
-          sale_id: saleId,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price
-        }));
+        // Registra os Itens da Venda e Deduz do Estoque Simultaneamente
+        const itemsToInsert = [];
+        for (const item of currentCart) {
+          itemsToInsert.push({
+            id: generateUUID(),
+            sale_id: saleId,
+            product_id: item.product_id,
+            name: item.name,
+            quantity: item.quantity,
+            unit_price: item.unit_price
+          });
 
+          // Abate Estoque na Tabela de Produtos
+          const productInDb = await db.products.get(item.product_id);
+          if (productInDb) {
+            await db.products.update(item.product_id, {
+              stock: (productInDb.stock || 0) - item.quantity
+            });
+          }
+        }
         await db.saleItems.bulkAdd(itemsToInsert);
       });
 
-      alert("Venda Finalizada com Sucesso!");
+      alert("Venda Finalizada! Estoque Atualizado.");
       
       currentCart = [];
       selectedPayment = null;
@@ -630,11 +606,10 @@
       switchView('dashboard');
     }
 
-    // DASHBOARD & HISTÓRICO
+    // DASHBOARD & HISTÓRICO COM EXIBIÇÃO DE ITENS E QUANTIDADES
     async function updateDashboardData() {
       const today = new Date().toISOString().split('T')[0];
       const sales = await db.sales.toArray();
-      
       const salesToday = sales.filter(s => s.created_at.startsWith(today));
       const totalToday = salesToday.reduce((acc, s) => acc + s.total_amount, 0);
 
@@ -645,6 +620,7 @@
     async function renderSalesHistory() {
       const container = document.getElementById('sales-history-list');
       const sales = await db.sales.orderBy('created_at').reverse().toArray();
+      const saleItems = await db.saleItems.toArray();
 
       if (sales.length === 0) {
         container.innerHTML = `<p class="text-center text-slate-400 font-bold py-8">Nenhuma venda realizada.</p>`;
@@ -653,46 +629,71 @@
 
       container.innerHTML = sales.map(s => {
         const time = new Date(s.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        
+        // Busca os itens específicos dessa venda para detalhar no histórico
+        const itemsOfThisSale = saleItems.filter(item => item.sale_id === s.id);
+        const itemsHtml = itemsOfThisSale.map(i => `<li class="text-xs text-slate-500 font-bold">• ${i.quantity}x ${i.name}</li>`).join('');
+
         return `
-          <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex justify-between items-center">
-            <div>
-              <span class="text-xs font-black text-slate-400 uppercase">${s.payment_method}</span>
-              <p class="font-extrabold text-slate-800 text-sm">${time}</p>
+          <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col gap-2">
+            <div class="flex justify-between items-center">
+              <div>
+                <span class="text-xs font-black text-slate-400 uppercase">${s.payment_method}</span>
+                <p class="font-extrabold text-slate-800 text-sm">${time}</p>
+              </div>
+              <span class="text-xl font-black text-slate-900">${formatCurrency(s.total_amount)}</span>
             </div>
-            <span class="text-xl font-black text-slate-900">${formatCurrency(s.total_amount)}</span>
+            <div class="pt-2 border-t border-slate-200">
+              <p class="text-[10px] uppercase font-black text-slate-400 mb-1">Itens Vendidos</p>
+              <ul class="space-y-0.5">${itemsHtml}</ul>
+            </div>
           </div>
         `;
       }).join('');
     }
 
-    // PRODUTOS
+    // GERENCIAMENTO DE PRODUTOS E ESTOQUE
     async function renderProductsList() {
       const query = document.getElementById('product-search').value.toLowerCase();
       const products = await db.products.toArray();
       const filtered = products.filter(p => p.name.toLowerCase().includes(query) || p.barcode.includes(query));
 
       const list = document.getElementById('products-list');
-      list.innerHTML = filtered.map(p => `
-        <div class="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex justify-between items-center">
-          <div>
-            <p class="font-extrabold text-slate-900 text-base">${p.name}</p>
-            <p class="text-xs font-bold text-slate-400">Cód: ${p.barcode}</p>
-            <p class="text-sm font-black text-emerald-600 mt-1">${formatCurrency(p.price)}</p>
+      list.innerHTML = filtered.map(p => {
+        const stockStatus = p.stock > 0 
+          ? `<span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs font-black">Estoque: ${p.stock}</span>`
+          : `<span class="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-xs font-black">Sem Estoque</span>`;
+
+        return `
+          <div class="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex justify-between items-center">
+            <div>
+              <p class="font-extrabold text-slate-900 text-base">${p.name}</p>
+              <p class="text-xs font-bold text-slate-400 mb-1">Cód: ${p.barcode}</p>
+              <div class="flex items-center gap-2">
+                <p class="text-sm font-black text-slate-900">${formatCurrency(p.price)}</p>
+                ${stockStatus}
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="editProduct('${p.id}')" class="p-2.5 bg-slate-200 active:bg-slate-300 rounded-xl font-bold"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
+              <button onclick="deleteProduct('${p.id}')" class="p-2.5 bg-rose-100 active:bg-rose-200 text-rose-600 rounded-xl font-bold"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>
           </div>
-          <div class="flex gap-2">
-            <button onclick="editProduct('${p.id}')" class="p-2.5 bg-slate-200 rounded-xl font-bold"><i data-lucide="edit-2" class="w-4 h-4"></i></button>
-            <button onclick="deleteProduct('${p.id}')" class="p-2.5 bg-rose-100 text-rose-600 rounded-xl font-bold"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
       lucide.createIcons();
     }
 
     function openProductModal(barcode = '', autoAddToCart = false) {
       document.getElementById('product-form').reset();
       document.getElementById('prod-id').value = '';
+      document.getElementById('prod-current-stock-val').value = '0';
       document.getElementById('prod-barcode').value = barcode || 'SEM_COD_' + Date.now().toString().slice(-4);
+      
       document.getElementById('modal-title').innerText = barcode ? 'Cadastro Rápido' : 'Novo Produto';
+      document.getElementById('lbl-stock-add').innerText = 'Estoque Inicial';
+      document.getElementById('stock-info-box').classList.add('hidden'); // Esconde o quadro de estoque atual no cadastro novo
+
       document.getElementById('product-modal').dataset.autoAdd = autoAddToCart;
       document.getElementById('product-modal').classList.remove('hidden');
     }
@@ -707,8 +708,13 @@
       const barcode = document.getElementById('prod-barcode').value;
       const name = document.getElementById('prod-name').value;
       const price = parseFloat(document.getElementById('prod-price').value);
+      
+      // Lógica de cálculo do novo estoque: Estoque Base Atual + Valor do campo 'Adicionar'
+      const currentStock = parseInt(document.getElementById('prod-current-stock-val').value) || 0;
+      const addedStock = parseInt(document.getElementById('prod-stock-add').value) || 0;
+      const finalStock = currentStock + addedStock;
 
-      const product = { id, barcode, name, price };
+      const product = { id, barcode, name, price, stock: finalStock };
       await db.products.put(product);
 
       const autoAdd = document.getElementById('product-modal').dataset.autoAdd === "true";
@@ -727,12 +733,22 @@
       document.getElementById('prod-barcode').value = p.barcode;
       document.getElementById('prod-name').value = p.name;
       document.getElementById('prod-price').value = p.price;
+      
+      // Prepara os valores de estoque para exibição em caso de edição
+      const currentStock = p.stock || 0;
+      document.getElementById('prod-current-stock-val').value = currentStock;
+      document.getElementById('display-current-stock').innerText = currentStock;
+      document.getElementById('stock-info-box').classList.remove('hidden');
+      
+      document.getElementById('lbl-stock-add').innerText = 'Adicionar ao Estoque';
+      document.getElementById('prod-stock-add').value = ''; // Começa em branco para ele digitar apenas a entrada nova
+
       document.getElementById('modal-title').innerText = 'Editar Produto';
       document.getElementById('product-modal').classList.remove('hidden');
     }
 
     async function deleteProduct(id) {
-      if (confirm('Deseja excluir este produto?')) {
+      if (confirm('Deseja excluir este produto definitivamente?')) {
         await db.products.delete(id);
         renderProductsList();
       }
